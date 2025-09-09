@@ -58,6 +58,16 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        .btn-secondary {
+            background-color: #e5e7eb;
+            color: #4b5563;
+            padding: 0.75rem 2rem;
+            border-radius: 0.75rem;
+            transition: background-color 0.2s;
+        }
+        .btn-secondary:hover {
+            background-color: #d1d5db;
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
@@ -99,6 +109,11 @@
                 <div>
                     <label for="persona-outline" class="block text-sm font-medium text-gray-700 mb-2">Persona 核心輪廓</label>
                     <textarea id="persona-outline" rows="3" class="form-input" placeholder="用一段文字講述她的教學背景、理念與遇到的困境"></textarea>
+                </div>
+
+                <div class="mt-8">
+                    <label for="api-key-input" class="block text-sm font-medium text-gray-700 mb-2">輸入你的 Google API 金鑰</label>
+                    <input type="text" id="api-key-input" class="form-input" placeholder="此為必填欄位">
                 </div>
 
                 <div class="flex justify-end">
@@ -165,6 +180,11 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="mt-8 flex justify-end space-x-4">
+                    <button id="copy-btn" class="btn-secondary">複製內容</button>
+                    <button id="new-persona-btn" class="btn-primary">生成新 Persona</button>
+                </div>
             </div>
         </div>
     </div>
@@ -174,10 +194,14 @@
             const generateBtn = document.getElementById('generate-btn');
             const btnText = document.getElementById('btn-text');
             const btnSpinner = document.getElementById('btn-spinner');
+            const copyBtn = document.getElementById('copy-btn');
+            const newPersonaBtn = document.getElementById('new-persona-btn');
+
             const commonIssueInput = document.getElementById('common-issue');
             const teachingExperienceInput = document.getElementById('teaching-experience');
             const teachingGradeInput = document.getElementById('teaching-grade');
             const personaOutlineInput = document.getElementById('persona-outline');
+            const apiKeyInput = document.getElementById('api-key-input');
             const inputSection = document.getElementById('input-section');
             const outputSection = document.getElementById('output-section');
 
@@ -190,15 +214,43 @@
             const articleIdeasEl = document.getElementById('article-ideas');
             const podcastIdeasEl = document.getElementById('podcast-ideas');
             const courseIdeasEl = document.getElementById('course-ideas');
+            
+            // Reusable function to show an alert
+            function showCustomAlert(message) {
+                const existingAlert = document.getElementById('custom-alert');
+                if (existingAlert) {
+                    existingAlert.remove();
+                }
+
+                const alertDiv = document.createElement('div');
+                alertDiv.id = 'custom-alert';
+                alertDiv.className = 'fixed top-4 right-4 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-xl transition-all duration-300 transform translate-x-full opacity-0';
+                alertDiv.textContent = message;
+                document.body.appendChild(alertDiv);
+
+                // Show the alert with a slide-in animation
+                setTimeout(() => {
+                    alertDiv.classList.remove('translate-x-full', 'opacity-0');
+                    alertDiv.classList.add('translate-x-0', 'opacity-100');
+                }, 100);
+
+                // Hide the alert after 3 seconds
+                setTimeout(() => {
+                    alertDiv.classList.remove('translate-x-0', 'opacity-100');
+                    alertDiv.classList.add('translate-x-full', 'opacity-0');
+                    setTimeout(() => alertDiv.remove(), 500);
+                }, 3000);
+            }
 
             generateBtn.addEventListener('click', async () => {
                 const commonIssue = commonIssueInput.value;
                 const teachingExperience = teachingExperienceInput.value;
                 const teachingGrade = teachingGradeInput.value;
                 const personaOutline = personaOutlineInput.value;
+                const userApiKey = apiKeyInput.value.trim();
 
-                if (!commonIssue || !teachingExperience || !teachingGrade || !personaOutline) {
-                    alert('請填寫所有欄位');
+                if (!commonIssue || !teachingExperience || !teachingGrade || !personaOutline || !userApiKey) {
+                    showCustomAlert('請填寫所有欄位，包含 Google API 金鑰');
                     return;
                 }
 
@@ -266,8 +318,7 @@
                         }
                     };
 
-                    const apiKey = "";
-                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${userApiKey}`;
 
                     const response = await fetch(apiUrl, {
                         method: 'POST',
@@ -278,7 +329,7 @@
                     if (!response.ok) {
                         const errorText = await response.text();
                         console.error('API Error:', errorText);
-                        alert('生成失敗，請稍後再試。');
+                        showCustomAlert('生成失敗，請檢查金鑰或稍後再試。');
                         return;
                     }
 
@@ -295,13 +346,37 @@
 
                 } catch (error) {
                     console.error('Error:', error);
-                    alert('發生錯誤，請檢查輸入或稍後再試。');
+                    showCustomAlert('發生錯誤，請檢查輸入或稍後再試。');
                 } finally {
                     // Reset loading state
                     btnText.textContent = '生成 Persona';
                     btnSpinner.classList.add('hidden');
                     generateBtn.disabled = false;
                 }
+            });
+
+            // "複製內容" button functionality
+            copyBtn.addEventListener('click', () => {
+                const personaContent = document.getElementById('output-section').innerText;
+                const textarea = document.createElement('textarea');
+                textarea.value = personaContent;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+
+                showCustomAlert('Persona 內容已複製！');
+            });
+
+            // "生成新 Persona" button functionality
+            newPersonaBtn.addEventListener('click', () => {
+                outputSection.classList.add('hidden');
+                inputSection.classList.remove('hidden');
+                // Optionally clear input fields for a new persona
+                commonIssueInput.value = '';
+                teachingExperienceInput.value = '';
+                teachingGradeInput.value = '';
+                personaOutlineInput.value = '';
             });
 
             function renderPersona(data) {
